@@ -1,13 +1,32 @@
-#!/usr/bin/env python
-'''
-@author: Hal Blackburn
-'''
+#!/usr/bin/env python2.7
+# tripostree.py : Attempts to build a Tripos hierarchy from CamSIS data.
+# 
+# Copyright (C) 2012  CARET, University of Cambridge
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections import OrderedDict as orddict
-from argparse import ArgumentParser, FileType
+from argparse import ArgumentParser, FileType, RawDescriptionHelpFormatter
 from operator import itemgetter
 from itertools import groupby
 import csv, re, json, sys
+
+DESCRIPTION='''
+Attempts to build a Tripos hierachy from the CamSIS Coding Manual data csv file.
+
+See: http://www.admin.cam.ac.uk/offices/students/codes/
+'''
 
 # Each row in the camsis CSV file is prefixed with a code representing the type
 # of data on that row. The subject/tripos-part rows are marked with this code.
@@ -86,7 +105,10 @@ def check_for_bad_codes(matches):
                         .format(bad_codes))
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("camsis_csv", type=FileType("r"))
+    parser = ArgumentParser(description=DESCRIPTION, 
+                            formatter_class=RawDescriptionHelpFormatter)
+    parser.add_argument("camsis_csv", type=FileType("r"), 
+                        help="The camsiscodes.csv file from the CamSIS Coding "
+                        "Manual website.")
     args = parser.parse_args()
     json.dump(build_tree(extract_codes(args.camsis_csv)), sys.stdout, indent=4)
