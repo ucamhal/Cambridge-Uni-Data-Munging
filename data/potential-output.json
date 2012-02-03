@@ -1,0 +1,24 @@
+[
+    {
+        "name": "Foo Bar Tripos",
+        "parts": [
+        	{
+                "name": "Foo Bar Tripos",
+                "code": "ABC",
+                "subjects": []
+            }
+        ]
+    },
+    {
+        "name": "Foo Bar Tripos",
+        "parts": [
+        	{
+        	    "name": "Foo Bar Tripos, Part 1", 
+        	    "code": "FBT01", 
+        	    "subjects": [
+        	        {"name": "Potatoing", "code": "FBT01P"}
+        	    ]
+        	}
+        ]
+    }
+]
