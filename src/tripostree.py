@@ -46,63 +46,87 @@ def extract_codes(csvfile):
         return sorted(codes, key=itemgetter(0))
 
 def partition_into_triposes(matchcodes):
-    return [list(group) for _, group in groupby(matchcodes, lambda x: x[0][0])]
-
-def guess_tripos_name(bits):
-    # Temporary solution, can do better
-    ((_,_,_), name), = bits[0:1]
-    if len(bits) == 1:
-        return name
-    return name.split(",")[0]
-
-def assemble_parts(bits):
-    # Partition bits by value of tripos part value
-    parts = [list(g) for k, g in groupby(bits, lambda b: b[0][1])]
-    
-    return [assemble_part(part) for part in parts]
-
-def assemble_part(part_bits):
-    ((pref, num, suf), name) = part_bits[0]
-    subjects = part_bits[1:] if suf == None else part_bits
-    return orddict([
-            ("name", guess_part_name(part_bits)),
-            ("code", pref + (num or "")), 
-            ("subjects", [assemble_subject(subject) for subject in subjects])])
-
-def guess_part_name(bits):
-    # Temporary soloution, can do better
-    ((_,_,suf), name), = bits[0:1]
-    if suf == None:
-        return name
-    return name.split(":")[0]
-
-def assemble_subject(((pref, num, suf), name)):
-    return orddict([
-            ("name", guess_subject_name(name)),
-            ("code", pref + num + suf)])
-
-def guess_subject_name(name):
-    return name.split(":")[1].strip() if ":" in name else name
-
-def assemble_tripos(bits):
-    assert len(bits) > 0
-    return orddict([
-            ("name", guess_tripos_name(bits)), 
-            ("parts", assemble_parts(bits))])
+    keyfunc = lambda c: c[0].getTripos()
+    return [Tripos(list(group)) for _, group in groupby(matchcodes, keyfunc)]
 
 def build_tree(codes):
-    matches = [(code, CODE_PATTERN.match(code), name) for (code, name) in codes]
-    check_for_bad_codes(matches)
-    expansion = [(match.groups(), name) for (_, match, name) in matches]
+    matches = [(Code(code), name) for (code, name) in codes]
     
-    triposes = partition_into_triposes(expansion)
-    return [assemble_tripos(tripos_bits) for tripos_bits in triposes] 
+    triposes = partition_into_triposes(matches)
+    return triposes 
+
+class Code(object):
+    def __init__(self, code):
+        match = CODE_PATTERN.match(code)
+        assert match
+        self._tripos, self._part, self._subject = match.groups()
+        assert self._tripos
     
-def check_for_bad_codes(matches):
-    bad_codes = [code for (code, match,_) in matches if not match]
-    if(len(bad_codes) > 0):
-        raise Exception("The following codes have an unexpected format: {}"\
-                        .format(bad_codes))
+    def getTripos(self): return self._tripos
+    def getPart(self): return self._part
+    def getSubject(self): return self._subject
+    
+    def getTriposPart(self):
+        return self._tripos + (self._part or "")
+    
+    def __tojson__(self):
+        return str(self)
+    
+    def __repr__(self):
+        return self._tripos + (self._part or "") + (self._subject or "")
+
+class Tripos(object):
+    def __init__(self, tripos_bits):
+        self._bits = tripos_bits
+        self._parts = [Part(self, list(g)) for _,g 
+                       in groupby(self._bits, lambda b: b[0].getPart())]
+    
+    def getName(self):
+        # Temporary solution, can do better
+        (_, name), = self._bits[0:1]
+        if len(self._bits) == 1:
+            return name
+        return name.split(",")[0]
+    
+    def __tojson__(self):
+        return orddict([
+                ("name", self.getName()),
+                ("parts", self._parts)])
+
+class Part(object):
+    def __init__(self, tripos, part_bits):
+        self._tripos = tripos
+        self._bits = part_bits
+        self._subjects = [Subject(self, bit) for bit in self._bits 
+                                             if bit[0].getSubject()]
+    
+    def getName(self):
+        return self._bits[0][1]
+    
+    def getCode(self):
+        return self._bits[0][0]
+    
+    def __tojson__(self):
+        return orddict([
+            ("name", self.getName()),
+            ("code", self.getCode().getTriposPart()), 
+            ("subjects", self._subjects)])
+
+class Subject(object):
+    def __init__(self, part, subject_bit):
+        self._part = part
+        (self._code, self._name) = subject_bit
+    
+    def __tojson__(self):
+        return orddict([
+                ("rawname", self._name),
+                ("code", self._code)])
+
+class Encoder(json.JSONEncoder):
+    def default(self, o):
+        if hasattr(o, "__tojson__"):
+            return o.__tojson__()
+        return json.JSONEncoder.default(self, o)
 
 if __name__ == "__main__":
     parser = ArgumentParser(description=DESCRIPTION, 
@@ -111,4 +135,5 @@ if __name__ == "__main__":
                         help="The camsiscodes.csv file from the CamSIS Coding "
                         "Manual website.")
     args = parser.parse_args()
-    json.dump(build_tree(extract_codes(args.camsis_csv)), sys.stdout, indent=4)
+    triposes = build_tree(extract_codes(args.camsis_csv))
+    json.dump(triposes, sys.stdout, indent=4, cls=Encoder)
