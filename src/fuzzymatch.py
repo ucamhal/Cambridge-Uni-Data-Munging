@@ -5,7 +5,8 @@
 # The idea is to take as input a CSV file of (ID, STRING) pairs which forms the
 # possible matches. Another table in the same format is read. Each line in this
 # second table is matched against the options represented in the first table.
-import cmdline, csv, difflib, sys
+import cmdline, csv, sys
+from Levenshtein import ratio, matching_blocks, editops
 from argparse import FileType
 from operator import itemgetter
 
@@ -30,7 +31,6 @@ class FuzzyMatchResult(object):
 class FuzzyMatcher(object):
     def __init__(self, index_str_pairs):
         self._data = index_str_pairs
-        self._sm = difflib.SequenceMatcher()
     
     def match(self, query, result_count=5):
         # Get the closest n matches. Note: if this turns out to be too slow, 
@@ -44,23 +44,18 @@ class FuzzyMatcher(object):
         return [self._finish_match(query, match) for match in matches]
     
     def _finish_match(self, query, (ratio, data_id, data)):
-        self._sm.set_seqs(data, query)
-        matching_blocks = self._sm.get_matching_blocks()
+        blocks = matching_blocks(editops(data, query), len(data), len(query))
         common_substrings = [(d, q, data[d:d+l])
-                             for (d, q, l) in matching_blocks if l > 0]
+                             for (d, q, l) in blocks if l > 0]
         return FuzzyMatchResult(data_id, data, ratio, common_substrings)
     
     def _build_match_list(self, query):
         # Build a list of tuples containing the similarity ratio ([0, 1])
-        ranked = [(self._get_ratio(d, query), d_id, d)
+        ranked = [(ratio(d, query), d_id, d)
                   for (d_id, d) in self._data]
         # Sort the results by ratio (descending)
         ranked.sort(key=itemgetter(0), reverse=True)
         return ranked
-    
-    def _get_ratio(self, data, query):
-        self._sm.set_seqs(data, query)
-        return self._sm.ratio()
 
 class CsvOutput(object):
     def __init__(self, dest=sys.stdout):
