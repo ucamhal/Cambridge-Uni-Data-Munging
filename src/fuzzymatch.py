@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.7
 # fuzzymatch.py - Suggests approximate matches of strings against a table of
 # options. 
 # 
@@ -99,6 +98,3 @@ class FuzzyMatchApp(cmdline.CmdLineApp):
     
     def load_id_vaues(self, csv_lines):
         return [(id, value) for id, value in csv.reader(csv_lines, 'excel')]
-
-if __name__ == "__main__":
-    FuzzyMatchApp()
