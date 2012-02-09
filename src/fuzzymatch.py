@@ -4,7 +4,7 @@
 # The idea is to take as input a CSV file of (ID, STRING) pairs which forms the
 # possible matches. Another table in the same format is read. Each line in this
 # second table is matched against the options represented in the first table.
-import cmdline, csv, sys
+import cmdline, csv, sys, json
 from Levenshtein import ratio, matching_blocks, editops
 from argparse import FileType
 from operator import itemgetter
@@ -56,6 +56,30 @@ class FuzzyMatcher(object):
         ranked.sort(key=itemgetter(0), reverse=True)
         return ranked
 
+class JsonOutput(object):
+    def __init__(self, dest=sys.stdout):
+        self._dest = dest
+        self._matches = []
+    
+    def output(self, query_id, query, matches):
+        match = {
+            "query": query,
+            "query_id": query_id,
+            "matches": [{"id": m.data_id, 
+                         "data": m.data, 
+                         "ratio": m.ratio, 
+                         "common_substrings": [{"data_index": di, 
+                                                "src_index": si, 
+                                                "string": substr} 
+                                               for [di, si, substr] 
+                                               in m.common_substrings]}
+                        for m in matches]
+        }
+        self._matches.append(match)
+    
+    def finish(self):
+        json.dump(self._matches, self._dest, indent=4)
+
 class CsvOutput(object):
     def __init__(self, dest=sys.stdout):
         self._writer = csv.writer(dest, 'excel')
@@ -79,17 +103,27 @@ class FuzzyMatchApp(cmdline.CmdLineApp):
         res = int(val)
         if res <= 0: raise ValueError("Value was <= 0: {}".format(res))
         return res
-        
     
     def define_arguments(self, parser):
         parser.add_argument("data_file", metavar="DATA_FILE", type=FileType("r"))
         parser.add_argument("query_file", metavar="QUERY_FILE", type=FileType("r"))
         parser.add_argument("--max-matches", "-m", type=self._int_gt_0, default=5, dest="max_matches")
+        parser.add_argument("-t", "--out-type", type=str, choices={"csv", "json"}, 
+                            default="csv", dest="out_type", 
+                            help="The output format to use. Default: csv")
+    
+    @staticmethod
+    def _get_output(type, dest):
+        if type == "csv":
+            return CsvOutput(dest=dest)
+        elif type == "json":
+            return JsonOutput(dest=dest)
+        raise ValueError("Unknown output type: {}".format(type))
     
     def main(self, args):
         matcher = FuzzyMatcher(self.load_id_vaues(args.data_file))
         queries = self.load_id_vaues(args.query_file)
-        output = CsvOutput()
+        output = self._get_output(args.out_type, dest=sys.stdout)
         
         for (query_id, query) in queries:
             matches = matcher.match(query, result_count=args.max_matches)
