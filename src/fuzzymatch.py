@@ -8,6 +8,7 @@ import cmdline, csv, sys, json
 from Levenshtein import ratio, matching_blocks, editops
 from argparse import FileType
 from operator import itemgetter
+from texttransform import Transforms
 
 class FuzzyMatchResult(object):
     def __init__(self, txquery, data_id, txdata, data, ratio, common_substrings):
@@ -115,30 +116,6 @@ class CsvOneLine(object):
 
 OUTPUT_METHODS = {"csv": CsvOutput, "csv-oneline": CsvOneLine, "json": JsonOutput}
 
-# Could allow arbitrary function from module
-class Transforms(object):
-    NOT_TRANSFORMS = {'list_transforms', 'get_transform_funcs', 'help_string', 
-                      'NOT_TRANSFORMS'}
-    
-    @staticmethod
-    def ignorecase(string):
-        "Reduces the input to lower case."
-        return string.lower()
-    
-    @staticmethod
-    def list_transforms():
-        return {key for key in vars(Transforms).keys() 
-                if not (key.startswith("__") or key in Transforms.NOT_TRANSFORMS)}
-    
-    @staticmethod
-    def help_string():
-        return " | ".join(["{}: {}".format(name, getattr(Transforms, name).__doc__) 
-                for name in Transforms.list_transforms()])
-    
-    @staticmethod
-    def get_transform_funcs(names):
-        return [getattr(Transforms, tx_name) for tx_name in names]
-
 class Transformer(object):
     def __init__(self, tx_funcs):
         self._tx_funcs = tx_funcs
@@ -163,7 +140,7 @@ class FuzzyMatchApp(cmdline.CmdLineApp):
         parser.add_argument("--max-matches", "-m", type=self._int_gt_0, default=5, 
                             dest="max_matches")
         parser.add_argument("-x", "--transform", metavar="NAME", type=str, 
-                            choices=Transforms.list_transforms(), nargs='+', 
+                            choices=Transforms.list_transforms(), action='append', 
                             dest="transforms", help="Pass the query and data strings "
                             "through 0 or more transformations prior to querys being "
                             "run. The following transforms are available: " 
