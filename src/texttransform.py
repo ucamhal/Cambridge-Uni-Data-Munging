@@ -31,9 +31,6 @@ class Transforms(object):
     def get_transform_funcs(names):
         return [getattr(Transforms, tx_name) for tx_name in names]
 
-def stripbrackets(text, start='(', end=')'):
-    return reduce(add, _find_bracket_sections(text, start, end), "")
-
 def _find_bracket_sections(string, start, end):
     assert start != end
     i = 0
