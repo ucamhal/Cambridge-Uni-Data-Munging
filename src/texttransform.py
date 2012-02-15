@@ -15,7 +15,7 @@ class Transforms(object):
         """
         Strips brackets and their contents out of a string. Stripping stops if incorectly
         nested brackets are encountered."""
-        return reduce(add, _find_bracket_sections(string, "(", ")"), "")
+        return reduce(add, _non_bracket_sections(string, "(", ")"), "")
     
     @staticmethod
     def list_transforms():
@@ -31,37 +31,23 @@ class Transforms(object):
     def get_transform_funcs(names):
         return [getattr(Transforms, tx_name) for tx_name in names]
 
-def _find_bracket_sections(string, start, end):
-    assert start != end
-    i = 0
-    while i < len(string):
-        c = string[i]
-        if c == start or c == end:
-            try:
-                end = _match_bracket(string, i, start, end)
-                i = end
-            except ValueError:
+def _non_bracket_sections(string, start, end):
+    state = 0
+    depth = 0
+    for i, c in enumerate(string):
+        if state == 0:
+            if c == start:
+                depth = 1
+                state = 1
+            elif c == end:
                 yield string[i:]
                 return
-        else:
-            yield string[i]
-        i = i + 1
-
-def _match_bracket(string, startIndex, start, end):
-    assert string[startIndex] in [start, end]
-    i = startIndex
-    depth = 0
-    while i < len(string):
-        c = string[i]
-        if c == start:
-            depth = depth + 1
-        elif c == end:
-            depth = depth - 1
-        
-        if depth < 0:
-            break
-        elif depth == 0:
-            return i
-        i = i + 1
-    raise ValueError("Mis-matched bracket nesting.")
-    
+            else:
+                yield c
+        elif state == 1:
+            if c == start:
+                depth += 1
+            elif c == end:
+                depth -= 1
+            if depth == 0:
+                state = 0
