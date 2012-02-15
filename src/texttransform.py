@@ -1,4 +1,5 @@
 from operator import add
+import re
 
 # Could allow arbitrary function from module
 class Transforms(object):
@@ -16,6 +17,25 @@ class Transforms(object):
         Strips brackets and their contents out of a string. Stripping stops if incorectly
         nested brackets are encountered."""
         return reduce(add, _non_bracket_sections(string, "(", ")"), "")
+    
+    PUNCTUATION = set(list("!\"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"))
+    
+    @staticmethod
+    def strippunctuation(string):
+        "Replaces punctuation characters with spaces."
+        return "".join(map(lambda x: " " if x in Transforms.PUNCTUATION else x, string))
+    
+    WS_PATTERN = re.compile("\s+")
+    
+    @staticmethod
+    def condensewhitespace(string):
+        "Collapses sequences of whitespace into single spaces."
+        return Transforms.WS_PATTERN.sub(" ", string)
+    
+    @staticmethod
+    def strip(string):
+        "Strips whitespace from the beginning and end of the string."
+        return string.strip()
     
     @staticmethod
     def list_transforms():
